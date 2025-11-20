@@ -1,0 +1,101 @@
+#!/usr/bin/env nextflow
+nextflow.enable.dsl=2
+
+def bwa_output = params.bwa_output ?: "bwa_output"
+
+
+process bwa_indexer {
+  tag "${params.organism}.${params.release}"
+  stageInMode  'symlink'
+  stageOutMode 'move'
+
+  output:
+    val(true) into idx_done
+
+  script:
+  """
+  set -eux
+
+  target_folder=${params.genomes}/${params.organism}/${params.release}/toplevel_bwa
+
+  mkdir -p "\$target_folder"
+  cd "\$target_folder"
+
+  if [[ -f index.fa.bwt ]]; then
+    echo "BWA index already exists in \$target_folder, skipping indexing."
+    exit 0
+  fi
+
+  if [[ ! -f index.fa ]]; then
+    ln -sf ../${params.organism}.${params.release}.fa index.fa
+  fi
+
+  bwa index -a bwtsw -p index.fa index.fa
+  """
+}
+
+
+process mapping {
+  tag "${pair_id}"
+  stageInMode  'symlink'
+  stageOutMode 'move'
+
+  publishDir "${params.project_folder}/${bwa_output}", mode: 'copy'
+
+  input:
+    tuple val(pair_id), path(reads)
+
+  output:
+    path "${pair_id}.sam"
+    path "${pair_id}.bam"
+    path "${pair_id}.bam.stat"
+    path "${pair_id}.sorted.bam"
+    path "${pair_id}.sorted.bam.bai"
+
+  script:
+  def ref = "${params.genomes}/${params.organism}/${params.release}/toplevel_bwa/index.fa"
+
+  if( reads instanceof Path ) {
+    """
+    set -eux
+
+    bwa mem -t ${task.cpus} -M "${ref}" ${reads} > ${pair_id}.sam
+
+    samtools view -bS ${pair_id}.sam > ${pair_id}.bam
+    samtools flagstat ${pair_id}.bam > ${pair_id}.bam.stat
+    samtools sort -@ ${task.cpus} -o ${pair_id}.sorted.bam ${pair_id}.bam
+    samtools index ${pair_id}.sorted.bam
+    """
+  } else {
+    """
+    set -eux
+
+    bwa mem -t ${task.cpus} -M "${ref}" ${reads[0]} ${reads[1]} > ${pair_id}.sam
+
+    samtools view -bS ${pair_id}.sam > ${pair_id}.bam
+    samtools flagstat ${pair_id}.bam > ${pair_id}.bam.stat
+    samtools sort -@ ${task.cpus} -o ${pair_id}.sorted.bam ${pair_id}.bam
+    samtools index ${pair_id}.sorted.bam
+    """
+  }
+}
+
+
+workflow {
+
+  def outdir = "${params.project_folder}/${bwa_output}"
+
+  Channel
+    .fromFilePairs("${params.bwa_raw_data}/*READ_{1,2}.fastq.gz", size: -1)
+    .filter { pair_id, reads ->
+      ! file("${outdir}/${pair_id}.sorted.bam.bai").exists()
+    }
+    .set { read_pairs }
+
+  idx_done_ch = bwa_indexer.out
+
+  idx_done_ch
+    .combine(read_pairs)
+    .map { idx, pair_id, reads -> tuple(pair_id, reads) }
+    | mapping
+}
