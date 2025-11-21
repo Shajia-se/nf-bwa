@@ -85,7 +85,8 @@ workflow {
   def outdir = "${params.project_folder}/${bwa_output}"
 
   def read_pairs = Channel
-    .fromFilePairs("${params.bwa_raw_data}/*READ_{1,2}.fastq.gz", size: -1)
+    .fromFilePairs("${params.bwa_raw_data}/*_{1,2}.trimmed.fastq.gz", flat: true)
+
     .filter { pair_id, reads ->
       ! file("${outdir}/${pair_id}.sorted.bam.bai").exists()
     }
