@@ -15,9 +15,7 @@ process bwa_index {
   script:
   """
   set -eux
-
   index_folder=${params.genomes}/${params.organism}/${params.release}/toplevel_bwa
-
   mkdir -p "\$index_folder"
   cd "\$index_folder"
 
@@ -33,6 +31,7 @@ process bwa_index {
   bwa index -a bwtsw -p index.fa index.fa
   """
 }
+
 
 
 process mapping {
@@ -85,7 +84,6 @@ workflow {
 
   def outdir = "${params.project_folder}/${bwa_output}"
 
-  // read_pairs: (pair_id, reads)
   def read_pairs = Channel
     .fromFilePairs("${params.bwa_raw_data}/*READ_{1,2}.fastq.gz", size: -1)
     .filter { pair_id, reads ->
