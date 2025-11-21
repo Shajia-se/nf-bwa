@@ -4,7 +4,7 @@ nextflow.enable.dsl=2
 def bwa_output = params.bwa_output ?: "bwa_output"
 
 
-process bwa_indexer {
+process bwa_index {
   tag "${params.organism}.${params.release}"
   stageInMode  'symlink'
   stageOutMode 'move'
@@ -16,18 +16,18 @@ process bwa_indexer {
   """
   set -eux
 
-  target_folder=${params.genomes}/${params.organism}/${params.release}/toplevel_bwa
+  index_folder=${params.genomes}/${params.organism}/${params.release}/toplevel_bwa
 
-  mkdir -p "\$target_folder"
-  cd "\$target_folder"
+  mkdir -p "\$index_folder"
+  cd "\$index_folder"
 
   if [[ -f index.fa.bwt ]]; then
-    echo "BWA index already exists in \$target_folder, skipping indexing."
+    echo "BWA index already exists in \$index_folder, skipping indexing."
     exit 0
   fi
 
   if [[ ! -f index.fa ]]; then
-    ln -sf ../${params.organism}.${params.release}.fa index.fa
+    ln -sf ../${params.organism}.${params.release}.dna.toplevel.fa index.fa
   fi
 
   bwa index -a bwtsw -p index.fa index.fa
@@ -85,14 +85,14 @@ workflow {
 
   def outdir = "${params.project_folder}/${bwa_output}"
 
-  Channel
+  // read_pairs: (pair_id, reads)
+  read_pairs = Channel
     .fromFilePairs("${params.bwa_raw_data}/*READ_{1,2}.fastq.gz", size: -1)
     .filter { pair_id, reads ->
       ! file("${outdir}/${pair_id}.sorted.bam.bai").exists()
     }
-    .set { read_pairs }
 
-  idx_done_ch = bwa_indexer.out
+  idx_done_ch = bwa_index.out
 
   idx_done_ch
     .combine(read_pairs)
