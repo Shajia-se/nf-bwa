@@ -10,7 +10,7 @@ process bwa_index {
   stageOutMode 'move'
 
   output:
-    val(true) into idx_done
+    val(true)
 
   script:
   """
@@ -53,31 +53,31 @@ process mapping {
     path "${pair_id}.sorted.bam.bai"
 
   script:
-  def ref = "${params.genomes}/${params.organism}/${params.release}/toplevel_bwa/index.fa"
+    def ref = "${params.genomes}/${params.organism}/${params.release}/toplevel_bwa/index.fa"
 
-  if( reads instanceof Path ) {
-    """
-    set -eux
+    if( reads instanceof Path ) {
+      """
+      set -eux
 
-    bwa mem -t ${task.cpus} -M "${ref}" ${reads} > ${pair_id}.sam
+      bwa mem -t ${task.cpus} -M "${ref}" ${reads} > ${pair_id}.sam
 
-    samtools view -bS ${pair_id}.sam > ${pair_id}.bam
-    samtools flagstat ${pair_id}.bam > ${pair_id}.bam.stat
-    samtools sort -@ ${task.cpus} -o ${pair_id}.sorted.bam ${pair_id}.bam
-    samtools index ${pair_id}.sorted.bam
-    """
-  } else {
-    """
-    set -eux
+      samtools view -bS ${pair_id}.sam > ${pair_id}.bam
+      samtools flagstat ${pair_id}.bam > ${pair_id}.bam.stat
+      samtools sort -@ ${task.cpus} -o ${pair_id}.sorted.bam ${pair_id}.bam
+      samtools index ${pair_id}.sorted.bam
+      """
+    } else {
+      """
+      set -eux
 
-    bwa mem -t ${task.cpus} -M "${ref}" ${reads[0]} ${reads[1]} > ${pair_id}.sam
+      bwa mem -t ${task.cpus} -M "${ref}" ${reads[0]} ${reads[1]} > ${pair_id}.sam
 
-    samtools view -bS ${pair_id}.sam > ${pair_id}.bam
-    samtools flagstat ${pair_id}.bam > ${pair_id}.bam.stat
-    samtools sort -@ ${task.cpus} -o ${pair_id}.sorted.bam ${pair_id}.bam
-    samtools index ${pair_id}.sorted.bam
-    """
-  }
+      samtools view -bS ${pair_id}.sam > ${pair_id}.bam
+      samtools flagstat ${pair_id}.bam > ${pair_id}.bam.stat
+      samtools sort -@ ${task.cpus} -o ${pair_id}.sorted.bam ${pair_id}.bam
+      samtools index ${pair_id}.sorted.bam
+      """
+    }
 }
 
 
@@ -86,13 +86,13 @@ workflow {
   def outdir = "${params.project_folder}/${bwa_output}"
 
   // read_pairs: (pair_id, reads)
-  read_pairs = Channel
+  def read_pairs = Channel
     .fromFilePairs("${params.bwa_raw_data}/*READ_{1,2}.fastq.gz", size: -1)
     .filter { pair_id, reads ->
       ! file("${outdir}/${pair_id}.sorted.bam.bai").exists()
     }
 
-  idx_done_ch = bwa_index.out
+  def idx_done_ch = bwa_index()
 
   idx_done_ch
     .combine(read_pairs)
