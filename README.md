@@ -1,13 +1,13 @@
 # nf-bwa
 
 A simple, portable BWA-MEM alignment pipeline using Nextflow.
-Designed for aligning trimmed FASTQ files (e.g., from nf-cutadapt)
+Designed for aligning trimmed FASTQ files (e.g., from nf-fastp)
 
 ---
 
 ## 📁 Demo data
 
-* Loads trimmed FASTQs: `*_1.trimmed.fastq.gz`, `*_2.trimmed.fastq.gz`
+* Loads trimmed FASTQs: `*1.fastp.trimmed.fastq.gz`, `**1.fastp.trimmed.fastq.gz`
 
 
 ---
