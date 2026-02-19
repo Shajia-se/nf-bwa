@@ -16,6 +16,7 @@ process bwa_index {
   """
   set -eux
   index_folder=${params.genomes}/${params.organism}/${params.release}/toplevel_bwa
+  ref_fa=${params.reference_fasta}
   mkdir -p "\$index_folder"
   cd "\$index_folder"
 
@@ -24,9 +25,8 @@ process bwa_index {
     exit 0
   fi
 
-  if [[ ! -f index.fa ]]; then
-    ln -sf ../${params.organism}.${params.release}.dna.toplevel.fa index.fa
-  fi
+  [[ -s "\$ref_fa" ]] || { echo "Reference FASTA not found: \$ref_fa" >&2; exit 1; }
+  ln -sf "\$ref_fa" index.fa
 
   bwa index -a bwtsw -p index.fa index.fa
   """
@@ -92,6 +92,6 @@ workflow {
       ! file("${outdir}/${pair_id}.sorted.bam.bai").exists()
     }
 
-  def index_ready = bwa_index().first()
+  def index_ready = bwa_index()
   mapping(read_pairs, index_ready)
 }
