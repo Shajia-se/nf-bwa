@@ -43,6 +43,7 @@ process mapping {
 
   input:
     tuple val(pair_id), path(reads)
+    each val(index_ready)
 
   output:
     path "${pair_id}.sam"
@@ -82,13 +83,15 @@ process mapping {
 workflow {
 
   def outdir = "${params.project_folder}/${bwa_output}"
+  def pattern = params.bwa_pattern ?: "*_R{1,2}.fastp.trimmed.fastq.gz"
 
   def read_pairs = Channel
-    .fromFilePairs("${params.bwa_raw_data}/*{1,2}.fastp.trimmed.fastq.gz")
+    .fromFilePairs("${params.bwa_raw_data}/${pattern}", checkIfExists: true)
+    .ifEmpty { exit 1, "ERROR: No FASTQ pairs found for pattern: ${params.bwa_raw_data}/${pattern}" }
     .filter { pair_id, reads ->
       ! file("${outdir}/${pair_id}.sorted.bam.bai").exists()
     }
 
-  bwa_index()
-  mapping(read_pairs)
+  def index_ready = bwa_index()
+  mapping(read_pairs, index_ready)
 }
