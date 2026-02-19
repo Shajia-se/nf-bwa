@@ -17,6 +17,7 @@ process bwa_index {
   set -eux
   index_folder=${params.genomes}/${params.organism}/${params.release}/toplevel_bwa
   ref_fa=${params.reference_fasta}
+  fallback_ref=${params.genomes}/${params.organism}/${params.release}/${params.organism}.${params.release}.dna.toplevel.fa
   index_fa="\$index_folder/index.fa"
   mkdir -p "\$index_folder"
   cd "\$index_folder"
@@ -26,6 +27,9 @@ process bwa_index {
     exit 0
   fi
 
+  if [[ ! -s "\$ref_fa" && -s "\$fallback_ref" ]]; then
+    ref_fa="\$fallback_ref"
+  fi
   [[ -s "\$ref_fa" ]] || { echo "Reference FASTA not found: \$ref_fa" >&2; exit 1; }
   if [[ "\$ref_fa" != "\$index_fa" ]]; then
     ln -sf "\$ref_fa" index.fa
