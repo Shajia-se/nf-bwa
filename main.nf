@@ -17,7 +17,7 @@ process bwa_index {
   set -eux
   index_folder=${params.genomes}/${params.organism}/${params.release}/toplevel_bwa
   ref_fa=${params.reference_fasta}
-  index_fa="$index_folder/index.fa"
+  index_fa="\$index_folder/index.fa"
   mkdir -p "\$index_folder"
   cd "\$index_folder"
 
