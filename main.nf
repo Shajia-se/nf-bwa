@@ -43,7 +43,7 @@ process mapping {
 
   input:
     tuple val(pair_id), path(reads)
-    each val(index_ready)
+    val(ready_signal)
 
   output:
     path "${pair_id}.sam"
@@ -92,6 +92,6 @@ workflow {
       ! file("${outdir}/${pair_id}.sorted.bam.bai").exists()
     }
 
-  def index_ready = bwa_index()
+  def index_ready = bwa_index().first()
   mapping(read_pairs, index_ready)
 }
