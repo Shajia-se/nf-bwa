@@ -1,131 +1,90 @@
 # nf-bwa
 
-A simple, portable BWA-MEM alignment pipeline using Nextflow.
-Designed for aligning trimmed FASTQ files (e.g., from nf-fastp)
+`nf-bwa` is a Nextflow DSL2 module for aligning trimmed FASTQ pairs with BWA-MEM and generating sorted/indexed BAM files.
 
----
+## What This Module Does
 
-## 📁 Demo data
+1. Ensures reference index exists in `.../toplevel_bwa/` (`bwa index`).
+2. Reads paired FASTQ files from `bwa_raw_data` using `bwa_pattern`.
+3. Aligns each pair with `bwa mem -M`.
+4. Converts, summarizes, sorts, and indexes alignments:
+   - `samtools view`
+   - `samtools flagstat`
+   - `samtools sort`
+   - `samtools index`
+5. Skips samples that already have `${sample}.sorted.bam.bai`.
 
-* Loads trimmed FASTQs: `*1.fastp.trimmed.fastq.gz`, `**1.fastp.trimmed.fastq.gz`
+## Input
 
+- Directory: `params.bwa_raw_data`
+- Pattern: `params.bwa_pattern` (default: `*_R{1,2}.fastp.trimmed.fastq.gz`)
+- Expected reads: paired-end trimmed FASTQ
 
----
+Reference-related inputs:
+- `params.genomes`
+- `params.organism`
+- `params.release`
+- `params.reference_fasta`
 
-## 🧬 Reference download (Ensembl - primary_assembly or toplevel)
+## Output
 
-**Mouse GRCm39 & GRCm38**
+Under `${project_folder}/${bwa_output}`:
+- `${sample}.sam`
+- `${sample}.bam`
+- `${sample}.bam.stat`
+- `${sample}.sorted.bam`
+- `${sample}.sorted.bam.bai`
 
-```bash
-wget https://ftp.ensembl.org/pub/release-109/fasta/mus_musculus/dna/Mus_musculus.GRCm39.dna.primary_assembly.fa.gz
-wget https://ftp.ensembl.org/pub/release-109/fasta/mus_musculus/dna/Mus_musculus.GRCm39.dna.toplevel.fa.gz
-wget https://ftp.ensembl.org/pub/release-102/fasta/mus_musculus/dna/Mus_musculus.GRCm38.dna.primary_assembly.fa.gz
-wget https://ftp.ensembl.org/pub/release-102/fasta/mus_musculus/dna/Mus_musculus.GRCm38.dna.toplevel.fa.gz
-```
+Downstream modules typically use:
+- `${sample}.sorted.bam`
+- `${sample}.sorted.bam.bai`
 
-**Human GRCh38**
+## Key Parameters
 
-```bash
-wget https://ftp.ensembl.org/pub/release-109/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz
-wget https://ftp.ensembl.org/pub/release-109/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.toplevel.fa.gz
-```
+- `bwa_raw_data`: input FASTQ folder
+- `bwa_pattern`: paired FASTQ matching pattern
+- `bwa_output`: output folder name
+- `genomes`, `organism`, `release`: reference directory layout
+- `reference_fasta`: FASTA used to prepare/link `index.fa`
+- `cpus`, `memory`, `time`: process resources
 
-Unzip:
-
-```bash
-gunzip *.fa.gz
-```
-
----
-
-## 🚀 Run locally (Docker)
+## Run
 
 ```bash
 nextflow run main.nf -profile local
 ```
 
-**Requirements**
-
-* Nextflow
-* Docker
-* A combined BWA+samtools image, e.g.:
-
-```bash
-docker pull shajiase/bwa-sam:1.16.1
-```
-
-* `configs/local.config`
-
----
-
-## 🚀 Run on HPC (Slurm + Singularity)
-
 ```bash
 nextflow run main.nf -profile hpc
 ```
 
-**Requirements**
-
-* Slurm
-* Singularity available
-* Singularity image, e.g.:
+Custom example:
 
 ```bash
-singularity pull bwa-sam.sif docker://shajiase/bwa-sam:1.16.1
+nextflow run main.nf -profile hpc \
+  --bwa_raw_data /path/to/fastp_output \
+  --bwa_pattern "*_R{1,2}.fastp.trimmed.fastq.gz" \
+  --reference_fasta /path/to/Mus_musculus.GRCm39.dna.toplevel.fa
 ```
 
-* `configs/slurm.config`
+Resume:
 
----
-
-## 📤 Output
-
-Results are written to:
-
-```
-${project_folder}/${bwa_output}/
+```bash
+nextflow run main.nf -profile hpc -resume
 ```
 
-Each input pair produces:
+## Notes
 
-* `SAMPLE.sam`
-* `SAMPLE.bam`
-* `SAMPLE.bam.stat`
-* `SAMPLE.sorted.bam`
-* `SAMPLE.sorted.bam.bai`
+- First run can be slow due to index creation.
+- If `index.fa.bwt` already exists, index step is skipped.
+- Keep treatment and control samples processed with the same upstream settings before MACS3.
 
-The files needed for downstream analysis are:
+## Project Structure
 
-* `SAMPLE.sorted.bam`
-* `SAMPLE.sorted.bam.bai`
-
----
-
-## 📂 Project structure
-
-```
+```text
 main.nf
 nextflow.config
 configs/
-├── local.config
-└── slurm.config
-test_data/
+  local.config
+  slurm.config
 ```
-
----
-
-## ✔️ What this pipeline does
-
-* Builds BWA index if not present
-
-* Runs:
-
-  ```
-  bwa mem -M
-  samtools view
-  samtools flagstat
-  samtools sort
-  samtools index
-  ```
-
-* Skips samples that already have `*.sorted.bam.bai`
