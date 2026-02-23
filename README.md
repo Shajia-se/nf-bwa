@@ -5,7 +5,7 @@
 ## What This Module Does
 
 1. Ensures reference index exists in `.../toplevel_bwa/` (`bwa index`).
-2. Reads paired FASTQ files from `bwa_raw_data` using `bwa_pattern`.
+2. Reads paired FASTQ files (priority: `samples_master` > `bwa_raw_data + bwa_pattern`).
 3. Aligns each pair with `bwa mem -M`.
 4. Converts, summarizes, sorts, and indexes alignments:
    - `samtools view`
@@ -16,6 +16,13 @@
 
 ## Input
 
+Preferred mode (`samples_master`):
+- `params.samples_master`: CSV with at least `sample_id` (optional `enabled`)
+- Module resolves input FASTQ as:
+  - `${bwa_raw_data}/${sample_id}_R1.fastp.trimmed.fastq.gz`
+  - `${bwa_raw_data}/${sample_id}_R2.fastp.trimmed.fastq.gz`
+
+Fallback mode (pattern-based):
 - Directory: `params.bwa_raw_data`
 - Pattern: `params.bwa_pattern` (default: `*_R{1,2}.fastp.trimmed.fastq.gz`)
 - Expected reads: paired-end trimmed FASTQ
@@ -42,6 +49,7 @@ Downstream modules typically use:
 ## Key Parameters
 
 - `bwa_raw_data`: input FASTQ folder
+- `samples_master`: preferred sample list input
 - `bwa_pattern`: paired FASTQ matching pattern
 - `bwa_output`: output folder name
 - `genomes`, `organism`, `release`: reference directory layout
@@ -59,6 +67,14 @@ nextflow run main.nf -profile hpc
 ```
 
 Custom example:
+Recommended run (`samples_master`):
+```bash
+nextflow run main.nf -profile hpc \
+  --samples_master /path/to/samples_master.csv \
+  --bwa_raw_data /path/to/nf-fastp/fastp_output
+```
+
+Fallback run (pattern):
 
 ```bash
 nextflow run main.nf -profile hpc \

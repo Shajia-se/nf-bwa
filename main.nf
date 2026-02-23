@@ -90,14 +90,39 @@ process mapping {
 workflow {
 
   def outdir = "${params.project_folder}/${bwa_output}"
-  def pattern = params.bwa_pattern ?: "*_R{1,2}.fastp.trimmed.fastq.gz"
+  def read_pairs
+  if (params.samples_master) {
+    read_pairs = Channel
+      .fromPath(params.samples_master, checkIfExists: true)
+      .splitCsv(header: true)
+      .filter { row ->
+        def enabled = row.enabled?.toString()?.trim()?.toLowerCase()
+        enabled == null || enabled == '' || enabled == 'true'
+      }
+      .map { row ->
+        def sample = row.sample_id?.toString()?.trim()
+        assert sample : "samples_master row is missing sample_id"
 
-  def read_pairs = Channel
-    .fromFilePairs("${params.bwa_raw_data}/${pattern}", checkIfExists: true)
-    .ifEmpty { exit 1, "ERROR: No FASTQ pairs found for pattern: ${params.bwa_raw_data}/${pattern}" }
-    .filter { pair_id, reads ->
-      ! file("${outdir}/${pair_id}.sorted.bam.bai").exists()
-    }
+        def r1 = file("${params.bwa_raw_data}/${sample}_R1.fastp.trimmed.fastq.gz")
+        def r2 = file("${params.bwa_raw_data}/${sample}_R2.fastp.trimmed.fastq.gz")
+        assert r1.exists() : "Missing trimmed R1 for sample '${sample}': ${r1}"
+        assert r2.exists() : "Missing trimmed R2 for sample '${sample}': ${r2}"
+
+        tuple(sample, [r1, r2])
+      }
+      .ifEmpty { exit 1, "ERROR: No enabled samples found in samples_master: ${params.samples_master}" }
+      .filter { pair_id, reads ->
+        ! file("${outdir}/${pair_id}.sorted.bam.bai").exists()
+      }
+  } else {
+    def pattern = params.bwa_pattern ?: "*_R{1,2}.fastp.trimmed.fastq.gz"
+    read_pairs = Channel
+      .fromFilePairs("${params.bwa_raw_data}/${pattern}", checkIfExists: true)
+      .ifEmpty { exit 1, "ERROR: No FASTQ pairs found for pattern: ${params.bwa_raw_data}/${pattern}" }
+      .filter { pair_id, reads ->
+        ! file("${outdir}/${pair_id}.sorted.bam.bai").exists()
+      }
+  }
 
   def index_ready = bwa_index()
   mapping(read_pairs, index_ready)
