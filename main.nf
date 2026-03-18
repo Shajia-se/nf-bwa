@@ -15,9 +15,9 @@ process bwa_index {
   script:
   """
   set -eux
-  index_folder=${params.genomes}/${params.organism}/${params.release}/toplevel_bwa
+  index_folder=${params.genomes}/${params.organism}/${params.release}/primary_bwa
   ref_fa=${params.reference_fasta}
-  fallback_ref=${params.genomes}/${params.organism}/${params.release}/${params.organism}.${params.release}.dna.toplevel.fa
+  fallback_ref=${params.genomes}/${params.organism}/${params.release}/${params.organism}.${params.release}.dna.primary_assembly.fa
   index_fa="\$index_folder/index.fa"
   mkdir -p "\$index_folder"
   cd "\$index_folder"
@@ -60,7 +60,7 @@ process mapping {
     path "${pair_id}.sorted.bam.bai"
 
   script:
-    def ref = "${params.genomes}/${params.organism}/${params.release}/toplevel_bwa/index.fa"
+    def ref = "${params.genomes}/${params.organism}/${params.release}/primary_bwa/index.fa"
 
     if( reads instanceof Path ) {
       """
