@@ -4,7 +4,7 @@
 
 ## What This Module Does
 
-1. Ensures reference index exists in `.../toplevel_bwa/` (`bwa index`).
+1. Ensures reference index exists in a versioned reference directory such as `.../bwa/GRCm39_vM27/primary_bwa/` (`bwa index`).
 2. Reads paired FASTQ files (priority: `samples_master` > `bwa_raw_data + bwa_pattern`).
 3. Aligns each pair with `bwa mem -M`.
 4. Converts, summarizes, sorts, and indexes alignments:
@@ -28,10 +28,11 @@ Fallback mode (pattern-based):
 - Expected reads: paired-end trimmed FASTQ
 
 Reference-related inputs:
-- `params.genomes`
-- `params.organism`
-- `params.release`
+- `params.reference_root`
+- `params.genome_release`
+- `params.gencode_version`
 - `params.reference_fasta`
+- `params.index_dir`
 
 ## Output
 
@@ -52,8 +53,9 @@ Downstream modules typically use:
 - `samples_master`: preferred sample list input
 - `bwa_pattern`: paired FASTQ matching pattern
 - `bwa_output`: output folder name
-- `genomes`, `organism`, `release`: reference directory layout
+- `reference_root`, `genome_release`, `gencode_version`: versioned reference layout
 - `reference_fasta`: FASTA used to prepare/link `index.fa`
+- `index_dir`: where BWA index files are created and reused
 - `cpus`, `memory`, `time`: process resources
 
 ## Run
@@ -80,7 +82,8 @@ Fallback run (pattern):
 nextflow run main.nf -profile hpc \
   --bwa_raw_data /path/to/fastp_output \
   --bwa_pattern "*_R{1,2}.fastp.trimmed.fastq.gz" \
-  --reference_fasta /path/to/Mus_musculus.GRCm39.dna.toplevel.fa
+  --reference_fasta /ictstr01/groups/idc/projects/uhlenhaut/jiang/reference/bwa/GRCm39_vM27/GRCm39.primary_assembly.genome.fa \
+  --index_dir /ictstr01/groups/idc/projects/uhlenhaut/jiang/reference/bwa/GRCm39_vM27/primary_bwa
 ```
 
 Resume:
@@ -93,6 +96,9 @@ nextflow run main.nf -profile hpc -resume
 
 - First run can be slow due to index creation.
 - If `index.fa.bwt` already exists, index step is skipped.
+- Recommended layout is versioned, for example:
+  - FASTA: `/ictstr01/groups/idc/projects/uhlenhaut/jiang/reference/bwa/GRCm39_vM27/GRCm39.primary_assembly.genome.fa`
+  - index: `/ictstr01/groups/idc/projects/uhlenhaut/jiang/reference/bwa/GRCm39_vM27/primary_bwa/`
 - Keep treatment and control samples processed with the same upstream settings before MACS3.
 
 ## Project Structure

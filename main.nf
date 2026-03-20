@@ -5,7 +5,7 @@ def bwa_output = params.bwa_output ?: "bwa_output"
 
 
 process bwa_index {
-  tag "${params.organism}.${params.release}"
+  tag "${params.genome_release}.${params.gencode_version}"
   stageInMode  'symlink'
   stageOutMode 'move'
 
@@ -15,9 +15,8 @@ process bwa_index {
   script:
   """
   set -eux
-  index_folder=${params.genomes}/${params.organism}/${params.release}/primary_bwa
+  index_folder=${params.index_dir ?: "${file(params.reference_fasta).parent}/primary_bwa"}
   ref_fa=${params.reference_fasta}
-  fallback_ref=${params.genomes}/${params.organism}/${params.release}/${params.organism}.${params.release}.dna.primary_assembly.fa
   index_fa="\$index_folder/index.fa"
   mkdir -p "\$index_folder"
   cd "\$index_folder"
@@ -27,9 +26,6 @@ process bwa_index {
     exit 0
   fi
 
-  if [[ ! -s "\$ref_fa" && -s "\$fallback_ref" ]]; then
-    ref_fa="\$fallback_ref"
-  fi
   [[ -s "\$ref_fa" ]] || { echo "Reference FASTA not found: \$ref_fa" >&2; exit 1; }
   if [[ "\$ref_fa" != "\$index_fa" ]]; then
     ln -sf "\$ref_fa" index.fa
@@ -60,7 +56,7 @@ process mapping {
     path "${pair_id}.sorted.bam.bai"
 
   script:
-    def ref = "${params.genomes}/${params.organism}/${params.release}/primary_bwa/index.fa"
+    def ref = "${params.index_dir ?: "${file(params.reference_fasta).parent}/primary_bwa"}/index.fa"
 
     if( reads instanceof Path ) {
       """
