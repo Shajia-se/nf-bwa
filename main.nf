@@ -49,8 +49,6 @@ process mapping {
     val(ready_signal)
 
   output:
-    path "${pair_id}.sam"
-    path "${pair_id}.bam"
     path "${pair_id}.bam.stat"
     path "${pair_id}.sorted.bam"
     path "${pair_id}.sorted.bam.bai"
@@ -62,28 +60,33 @@ process mapping {
       """
       set -eux
 
-      bwa mem -t ${task.cpus} -M "${ref}" ${reads} > ${pair_id}.sam
-
-      samtools view -bS ${pair_id}.sam > ${pair_id}.bam
-      samtools flagstat ${pair_id}.bam > ${pair_id}.bam.stat
-      samtools sort -@ ${task.cpus} -o ${pair_id}.sorted.bam ${pair_id}.bam
+      bwa mem -t ${task.cpus} -M "${ref}" ${reads} | samtools view -b -o ${pair_id}.tmp.bam -
+      samtools flagstat ${pair_id}.tmp.bam > ${pair_id}.bam.stat
+      samtools sort -@ ${task.cpus} -o ${pair_id}.sorted.bam ${pair_id}.tmp.bam
       samtools index ${pair_id}.sorted.bam
+      rm -f ${pair_id}.tmp.bam
       """
     } else {
       """
       set -eux
 
-      bwa mem -t ${task.cpus} -M "${ref}" ${reads[0]} ${reads[1]} > ${pair_id}.sam
-
-      samtools view -bS ${pair_id}.sam > ${pair_id}.bam
-      samtools flagstat ${pair_id}.bam > ${pair_id}.bam.stat
-      samtools sort -@ ${task.cpus} -o ${pair_id}.sorted.bam ${pair_id}.bam
+      bwa mem -t ${task.cpus} -M "${ref}" ${reads[0]} ${reads[1]} | samtools view -b -o ${pair_id}.tmp.bam -
+      samtools flagstat ${pair_id}.tmp.bam > ${pair_id}.bam.stat
+      samtools sort -@ ${task.cpus} -o ${pair_id}.sorted.bam ${pair_id}.tmp.bam
       samtools index ${pair_id}.sorted.bam
+      rm -f ${pair_id}.tmp.bam
       """
     }
 }
 
 workflow {
+
+  if (!params.reference_fasta) {
+    exit 1, "ERROR: --reference_fasta must be provided"
+  }
+  if (!params.bwa_raw_data) {
+    exit 1, "ERROR: --bwa_raw_data must be provided. This should usually be the nf-fastp output folder."
+  }
 
   def outdir = "${params.project_folder}/${bwa_output}"
   def read_pairs
@@ -108,7 +111,9 @@ workflow {
       }
       .ifEmpty { exit 1, "ERROR: No enabled samples found in samples_master: ${params.samples_master}" }
       .filter { pair_id, reads ->
-        ! file("${outdir}/${pair_id}.sorted.bam.bai").exists()
+        !(file("${outdir}/${pair_id}.sorted.bam").exists() &&
+          file("${outdir}/${pair_id}.sorted.bam.bai").exists() &&
+          file("${outdir}/${pair_id}.bam.stat").exists())
       }
   } else {
     def pattern = params.bwa_pattern ?: "*_R{1,2}.fastp.trimmed.fastq.gz"
@@ -116,7 +121,9 @@ workflow {
       .fromFilePairs("${params.bwa_raw_data}/${pattern}", checkIfExists: true)
       .ifEmpty { exit 1, "ERROR: No FASTQ pairs found for pattern: ${params.bwa_raw_data}/${pattern}" }
       .filter { pair_id, reads ->
-        ! file("${outdir}/${pair_id}.sorted.bam.bai").exists()
+        !(file("${outdir}/${pair_id}.sorted.bam").exists() &&
+          file("${outdir}/${pair_id}.sorted.bam.bai").exists() &&
+          file("${outdir}/${pair_id}.bam.stat").exists())
       }
   }
 
